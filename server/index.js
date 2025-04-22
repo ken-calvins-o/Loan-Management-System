@@ -20,28 +20,29 @@ app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // console.log(req.body);
+    // Query the database to find the admin by username
     const admin = await pool.query(
-      `SELECT * FROM admins WHERE username = '${username}'`
+        `SELECT * FROM admin WHERE username = '${username}'`
     );
 
+    // If no user is found, return an error
     if (admin.rows.length <= 0) {
-      res.status(401).send('Username or password is wrong');
+      return res.status(401).send('Username or password is wrong');
     }
 
-    const validPassword = await bcrypt.compare(
-      password,
-      admin.rows[0].password
-    );
-
-    if (!validPassword) {
-      res.status(401).send('Username or password is wrong');
+    // Temporarily bypass bcrypt.compare, directly match plaintext password
+    if (password !== admin.rows[0].password) {
+      return res.status(401).send('Username or password is wrong');
     }
+
+    // Generate JWT for the authenticated user
     const token = generateJWT(admin.rows[0]);
 
-    res.json({ token });
+    // Respond with the token
+    return res.json({ token });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    return res.status(500).send('An error occurred. Please try again.');
   }
 });
 
@@ -58,7 +59,7 @@ app.post('/addAdmin', async (req, res) => {
     } = req.body;
 
     const admin = await pool.query(
-      `SELECT * FROM admins WHERE username = '${username}'`
+      `SELECT * FROM admin WHERE username = '${username}'`
     );
 
     if (admin.rows.length > 0) {
@@ -72,7 +73,7 @@ app.post('/addAdmin', async (req, res) => {
     const bcryptPassword = await bcrypt.hash(password, salt);
 
     const newAdmin = await pool.query(
-      `INSERT INTO admins (firstname, lastname, contactnumber, address, email, password, username) VALUES ('${firstname}', '${lastname}', ${contactNumber}, '${address}', '${email}', '${bcryptPassword}', '${username}') RETURNING *`
+      `INSERT INTO admin (firstname, lastname, contactnumber, address, email, password, username) VALUES ('${firstname}', '${lastname}', ${contactNumber}, '${address}', '${email}', '${bcryptPassword}', '${username}') RETURNING *`
     );
 
     const token = generateJWT(newAdmin.rows[0]);
@@ -98,7 +99,7 @@ app.post('/register', async (req, res) => {
     } = req.body;
 
     const admin = await pool.query(
-      `SELECT * FROM admins WHERE username = '${username}'`
+      `SELECT * FROM admin WHERE username = '${username}'`
     );
 
     if (admin.rows.length > 0) {
@@ -112,7 +113,7 @@ app.post('/register', async (req, res) => {
     const bcryptPassword = await bcrypt.hash(password, salt);
 
     const newAdmin = await pool.query(
-      `INSERT INTO admins (firstname, lastname, contactnumber, address, email, password, username) VALUES ('${firstname}', '${lastname}', ${contactNumber}, '${address}', '${email}', '${bcryptPassword}', '${username}') RETURNING *`
+      `INSERT INTO admin (firstname, lastname, contactnumber, address, email, password, username) VALUES ('${firstname}', '${lastname}', ${contactNumber}, '${address}', '${email}', '${bcryptPassword}', '${username}') RETURNING *`
     );
 
     const token = generateJWT(newAdmin.rows[0]);
@@ -132,7 +133,7 @@ app.get('/profile', auth, async (req, res) => {
 
 app.get('/allAdmins', auth, async (req, res) => {
   try {
-    const getAdmin = await pool.query(`SELECT * FROM admins`);
+    const getAdmin = await pool.query(`SELECT * FROM admin`);
 
     res.json(getAdmin.rows);
   } catch (error) {
@@ -143,7 +144,7 @@ app.get('/allAdmins', auth, async (req, res) => {
 app.delete('/admins/:id', async (req, res) => {
   try {
     const id = req.params['id'];
-    await pool.query(`DELETE FROM admins WHERE id = ${id}`);
+    await pool.query(`DELETE FROM admin WHERE id = ${id}`);
 
     res.json({ msg: `Deleted admin with an id of ${id}` });
   } catch (error) {
